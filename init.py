@@ -1,7 +1,9 @@
 import os
-import requests
-from bs4 import BeautifulSoup
 from groq import Groq
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+
+if 'API_KEY' not in os.environ:
+    raise EnvironmentError("API_KEY not found in environment variables")
 
 client = Groq(api_key=os.environ['API_KEY'])
 
@@ -14,7 +16,6 @@ def classify_website_content(content):
         Webpage content: {content}
 
         How would you classify this page?
-        Use only one word. Either 'beneficial' or 'time-waster'.
         """
     try:
         completion = client.chat.completions.create(
@@ -33,47 +34,65 @@ def classify_website_content(content):
         )
 
         result = ""
-
-        print(content)
-
         for chunk in completion:
-             result += chunk.choices[0].delta.content or ""
+            result += chunk.choices[0].delta.content or ""
 
-        return result
+        return result.strip()
     except Exception as e:
-        return f"Error occurred: {str(e)}"
+        return f"Error in classification: {str(e)}"
 
 def extract_website_content(url):
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        html_content = response.text
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
 
-        soup = BeautifulSoup(html_content, 'html.parser')
+            page.goto(url, timeout=30000)  # 30 seconds timeout
 
-        text_content = soup.get_text(separator=' ', strip=True)
+            title = page.title()
 
-        return text_content
+            meta_description = page.locator('meta[name="description"]').get_attribute('content')
 
-    except requests.exceptions.RequestException as e:
-        return f"Failed to fetch website content: {str(e)}"
+            headings = page.locator('h1, h2, h3, h4, h5, h6').all_inner_texts()
+            body_content = page.text_content('body')
+
+            browser.close()
+
+            content = f"Title: {title}\n\n"
+            if meta_description:
+                content += f"Meta Description: {meta_description}\n\n"
+            if headings:
+                content += f"Headings: {' | '.join(headings)}\n\n"
+
+            main_body_content = extract_main_content(body_content)
+            content += f"Body Content:\n{main_body_content}"
+
+        return content
+    except PlaywrightTimeoutError:
+        return "Error: Page load timed out"
+    except Exception as e:
+        return f"Error extracting content: {str(e)}"
+
+def extract_main_content(body_content):
+    clean_content = " ".join(body_content.split())
+    return clean_content[:2000]
 
 def evaluate_website(url):
-    content = extract_website_content(url)
+    try:
+        content = extract_website_content(url)
+        print(content)
+        if not content or 'Error' in content:
+            return f"Failed to extract content: {content}"
 
-    print(content)
-
-    if not content or 'Failed to fetch' in content:
-        return content
-
-    classification = classify_website_content(content)
-
-    return classification
+        classification = classify_website_content(content)
+        return classification
+    except Exception as e:
+        return f"Error evaluating website: {str(e)}"
 
 if __name__ == '__main__':
-    url = 'https://www.youtube.com/watch?v=PI6VA8ZNL-0&ab_channel=HacksmithIndustries'
-
-    result = evaluate_website(url)
-
-    print(f"Classification result for {url}: {result}")
-
+    url = 'https://www.youtube.com/watch?v=PXMJ6FS7llk&list=WL&index=4&ab_channel=freeCodeCamp.org'
+    try:
+        result = evaluate_website(url)
+        print(f"Classification result for {url}: {result}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {str(e)}")
