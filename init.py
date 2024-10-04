@@ -1,4 +1,5 @@
 import os
+import time
 from groq import Groq
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
@@ -41,41 +42,71 @@ def classify_website_content(content):
     except Exception as e:
         return f"Error in classification: {str(e)}"
 
-def extract_website_content(url):
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
+def extract_metadata(page):
+    metadata = {}
+    meta_elements = page.query_selector_all('meta')
+    for meta in meta_elements:
+        name = meta.get_attribute('name') or meta.get_attribute('property')
+        content = meta.get_attribute('content')
+        if name and content:
+            metadata[name] = content
+    return metadata
 
-            page.goto(url, timeout=30000)  # 30 seconds timeout
+def extract_website_content(url, max_retries=2, initial_timeout=15000):
+    for attempt in range(max_retries):
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(
+                    viewport={'width': 1280, 'height': 720},  # Reduced viewport size
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                )
+                page = context.new_page()
 
-            title = page.title()
+                timeout = initial_timeout * (attempt + 1)
+                page.set_default_timeout(timeout)
+                page.set_default_navigation_timeout(timeout)
 
-            meta_description = page.locator('meta[name="description"]').get_attribute('content')
+                response = page.goto(url, wait_until="domcontentloaded")
+                if response.status >= 400:
+                    return f"Error: HTTP status {response.status}"
 
-            headings = page.locator('h1, h2, h3, h4, h5, h6').all_inner_texts()
-            body_content = page.text_content('body')
+                page.wait_for_load_state("networkidle", timeout=timeout)
 
-            browser.close()
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.5)")
+                time.sleep(1)  # Reduced wait time
 
-            content = f"Title: {title}\n\n"
-            if meta_description:
-                content += f"Meta Description: {meta_description}\n\n"
-            if headings:
-                content += f"Headings: {' | '.join(headings)}\n\n"
+                # Extract content
+                title = page.title()
+                metadata = extract_metadata(page)
+                headings = page.locator('h1, h2, h3, h4, h5, h6').all_inner_texts()
+                body_content = page.locator('body').inner_text()
+                first_paragraph = page.locator('p').first.inner_text() or ""
 
-            main_body_content = extract_main_content(body_content)
-            content += f"Body Content:\n{main_body_content}"
+                browser.close()
 
-        return content
-    except PlaywrightTimeoutError:
-        return "Error: Page load timed out"
-    except Exception as e:
-        return f"Error extracting content: {str(e)}"
+                content = f"Title: {title}\n\n"
+                content += "Metadata:\n"
+                for key, value in metadata.items():
+                    content += f"{key}: {value}\n"
+                if headings:
+                    content += f"Main Headings: {' | '.join(headings[:6])}\n\n"
+
+                main_body_content = extract_main_content(body_content)
+                content += f"Body Content:\n{main_body_content}\n\n"
+                content += f"First Paragraph:\n{first_paragraph}\n\n"
+
+                return content
+
+        except PlaywrightTimeoutError:
+            if attempt == max_retries - 1:
+                return "Error: Page load timed out after multiple attempts"
+        except Exception as e:
+            return f"Error extracting content: {str(e)}"
 
 def extract_main_content(body_content):
     clean_content = " ".join(body_content.split())
-    return clean_content[:2000]
+    return clean_content[:3000]
 
 def evaluate_website(url):
     try:
@@ -90,7 +121,7 @@ def evaluate_website(url):
         return f"Error evaluating website: {str(e)}"
 
 if __name__ == '__main__':
-    url = 'https://www.youtube.com/watch?v=PXMJ6FS7llk&list=WL&index=4&ab_channel=freeCodeCamp.org'
+    url = 'https://www.reddit.com/r/farcry6/comments/1cgpek5/best_build/'
     try:
         result = evaluate_website(url)
         print(f"Classification result for {url}: {result}")
