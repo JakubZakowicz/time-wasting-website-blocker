@@ -17,6 +17,7 @@ def classify_website_content(content):
         Webpage content: {content}
 
         How would you classify this page?
+        Use only one word. Either 'beneficial' or 'time-waster'.
         """
     try:
         completion = client.chat.completions.create(
@@ -52,13 +53,22 @@ def extract_metadata(page):
             metadata[name] = content
     return metadata
 
+def get_first_n_paragraphs(page, n=3):
+    paragraphs = page.evaluate(f"""
+        () => {{
+            const paragraphs = Array.from(document.querySelectorAll('p'));
+            return paragraphs.slice(0, {n}).map(p => p.textContent.trim()).filter(text => text.length > 0);
+        }}
+    """)
+    return "\n\n".join(paragraphs)
+
 def extract_website_content(url, max_retries=2, initial_timeout=15000):
     for attempt in range(max_retries):
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
                 context = browser.new_context(
-                    viewport={'width': 1280, 'height': 720},  # Reduced viewport size
+                    viewport={'width': 1280, 'height': 720},
                     user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 )
                 page = context.new_page()
@@ -74,14 +84,13 @@ def extract_website_content(url, max_retries=2, initial_timeout=15000):
                 page.wait_for_load_state("networkidle", timeout=timeout)
 
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.5)")
-                time.sleep(1)  # Reduced wait time
+                time.sleep(1)
 
-                # Extract content
                 title = page.title()
                 metadata = extract_metadata(page)
                 headings = page.locator('h1, h2, h3, h4, h5, h6').all_inner_texts()
                 body_content = page.locator('body').inner_text()
-                first_paragraph = page.locator('p').first.inner_text() or ""
+                first_paragraphs = get_first_n_paragraphs(page, 5)
 
                 browser.close()
 
@@ -94,7 +103,7 @@ def extract_website_content(url, max_retries=2, initial_timeout=15000):
 
                 main_body_content = extract_main_content(body_content)
                 content += f"Body Content:\n{main_body_content}\n\n"
-                content += f"First Paragraph:\n{first_paragraph}\n\n"
+                content += f"First Paragraph:\n{first_paragraphs}\n\n"
 
                 return content
 
@@ -121,7 +130,7 @@ def evaluate_website(url):
         return f"Error evaluating website: {str(e)}"
 
 if __name__ == '__main__':
-    url = 'https://www.reddit.com/r/farcry6/comments/1cgpek5/best_build/'
+    url = 'https://gamerant.com/far-cry-6-best-loadouts/'
     try:
         result = evaluate_website(url)
         print(f"Classification result for {url}: {result}")
