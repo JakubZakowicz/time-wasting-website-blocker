@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Website Blocked</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f0f0f0;
+      }
+      .container {
+        text-align: center;
+        padding: 20px;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #d32f2f;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Website Blocked</h1>
+      <p>
+        This website has been identified as potentially time-wasting and has
+        been blocked.
+      </p>
+      <p>Blocked URL: <span id="blockedUrl"></span></p>
+    </div>
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const blockedUrl = urlParams.get('blockedUrl');
+      document.getElementById('blockedUrl').textContent =
+        blockedUrl || 'Unknown';
+    </script>
+  </body>
+</html>

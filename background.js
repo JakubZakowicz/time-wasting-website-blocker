@@ -47,7 +47,6 @@ async function analyzeWithGroq(metadata) {
     }),
   });
 
-
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
@@ -55,6 +54,10 @@ async function analyzeWithGroq(metadata) {
   const data = await response.json();
 
   return data.choices[0].message.content;
+}
+
+function blockWebsite(tabId, url) {
+  chrome.tabs.sendMessage(tabId, { action: 'block', blockedUrl: url });
 }
 
 chrome.webNavigation.onCompleted.addListener(async function (details) {
@@ -79,16 +82,52 @@ chrome.webNavigation.onCompleted.addListener(async function (details) {
           chrome.storage.local.set({ visits: visits });
         });
 
+        if (analysis.toLowerCase().includes('time-wasting')) {
+          blockWebsite(details.tabId, details.url);
+        }
+
+        console.log('After blocking');
+
         // Optionally, you could show a notification here
-        chrome.notifications.create({
-          type: 'basic',
-          iconUrl: 'icons/icon48.png',
-          title: 'Website Analysis',
-          message: analysis,
-        });
+        // chrome.notifications.create({
+        //   type: 'basic',
+        //   iconUrl: 'icons/icon48.png',
+        //   title: 'Website Analysis',
+        //   message: analysis,
+        // });
       } catch (error) {
         console.error('Error analyzing with Groq:', error);
       }
     }
   }
 });
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'checkBlocked') {
+    checkIfBlocked(message.url, sender.tab.id);
+  }
+  return true; // Indicates we will send a response asynchronously
+});
+
+async function checkIfBlocked(url, tabId) {
+  try {
+    const result = await chrome.storage.local.get('visits');
+    const visits = result.visits || [];
+    const recentVisits = visits.filter(
+      v => new Date(v.timestamp) > new Date(Date.now() - 5 * 60 * 1000)
+    );
+    const matchingVisit = recentVisits.find(v => v.url === url);
+
+    if (
+      matchingVisit &&
+      matchingVisit.analysis.toLowerCase().includes('time-wasting')
+    ) {
+      await chrome.tabs.sendMessage(tabId, {
+        action: 'block',
+        blockedUrl: url,
+      });
+    }
+  } catch (error) {
+    console.error('Error checking if blocked:', error);
+  }
+}
