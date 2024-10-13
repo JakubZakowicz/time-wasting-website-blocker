@@ -1,29 +1,5 @@
-// Import any necessary libraries for making HTTP requests
-// You might need to use a library like axios if you're building with a bundler
-
 const GROQ_API_KEY = '';
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-
-async function getWebsiteMetadata(url) {
-  try {
-    const response = await fetch(url);
-    const html = await response.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-
-    const title = doc.querySelector('title')?.innerText || '';
-    const description =
-      doc.querySelector('meta[name="description"]')?.content || '';
-    const keywords = doc.querySelector('meta[name="keywords"]')?.content || '';
-
-    console.log(title, description, keywords);
-
-    return { title, description, keywords };
-  } catch (error) {
-    console.error('Error fetching metadata:', error);
-    return null;
-  }
-}
 
 async function analyzeWithGroq(metadata) {
   const prompt = `Analyze the following website metadata and determine if the   website is likely to be beneficial or time-wasting. Consider a webpage as "beneficial" if it contains educational, useful, or informative content. Otherwise, consider it a "time-waster" such as content about video games, movies, series etc. Use only one word.
@@ -56,78 +32,71 @@ async function analyzeWithGroq(metadata) {
   return data.choices[0].message.content;
 }
 
-function blockWebsite(tabId, url) {
-  chrome.tabs.sendMessage(tabId, { action: 'block', blockedUrl: url });
-}
-
-chrome.webNavigation.onCompleted.addListener(async function (details) {
-  if (details.frameId === 0) {
-    // Only process main frame navigation
-    console.log('Visited: ' + details.url);
-
-    const metadata = await getWebsiteMetadata(details.url);
-    if (metadata) {
-      try {
-        const analysis = await analyzeWithGroq(metadata);
-        console.log('Groq Analysis:', analysis);
-
-        // Store the result
-        chrome.storage.local.get({ visits: [] }, function (result) {
-          let visits = result.visits;
-          visits.push({
-            url: details.url,
-            timestamp: new Date().toISOString(),
-            analysis: analysis,
-          });
-          chrome.storage.local.set({ visits: visits });
-        });
-
-        if (analysis.toLowerCase().includes('time-wasting')) {
-          blockWebsite(details.tabId, details.url);
-        }
-
-        console.log('After blocking');
-
-        // Optionally, you could show a notification here
-        // chrome.notifications.create({
-        //   type: 'basic',
-        //   iconUrl: 'icons/icon48.png',
-        //   title: 'Website Analysis',
-        //   message: analysis,
-        // });
-      } catch (error) {
-        console.error('Error analyzing with Groq:', error);
-      }
-    }
-  }
-});
-
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'checkBlocked') {
-    checkIfBlocked(message.url, sender.tab.id);
+  if (message.action === "analyzeMetadata") {
+    analyzeMetadata(message.metadata, sender.tab.id)
+      .then(() => sendResponse({status: "completed"}))
+      .catch((error) => sendResponse({status: "error", message: error.message}));
+    return true;  // Indicates we will send a response asynchronously
+  } else if (message.action === "checkBlocked") {
+    checkIfBlocked(message.url, sender.tab.id)
+      .then((isBlocked) => sendResponse({status: "completed", isBlocked: isBlocked}))
+      .catch((error) => sendResponse({status: "error", message: error.message}));
+    return true;  // Indicates we will send a response asynchronously
   }
-  return true; // Indicates we will send a response asynchronously
 });
+
+async function analyzeMetadata(metadata, tabId) {
+  try {
+    const analysis = await analyzeWithGroq(metadata);
+    console.log('Groq Analysis:', analysis);
+
+    const result = await chrome.storage.local.get('visits');
+    let visits = result.visits || [];
+    visits.push({
+      url: metadata.url,
+      timestamp: new Date().toISOString(),
+      analysis: analysis,
+    });
+    await chrome.storage.local.set({ visits: visits });
+
+    if (analysis.toLowerCase().includes('time-wasting')) {
+      await chrome.tabs.sendMessage(tabId, { action: "block", blockedUrl: metadata.url });
+    }
+
+    // chrome.notifications.create({
+    //   type: 'basic',
+    //   iconUrl: 'icons/icon48.png',
+    //   title: 'Website Analysis',
+    //   message: analysis,
+    // });
+
+    return { status: "completed", analysis: analysis };
+  } catch (error) {
+    console.error('Error analyzing with Groq:', error);
+    throw error;
+  }
+}
 
 async function checkIfBlocked(url, tabId) {
   try {
+    console.log('checkBlocked')
     const result = await chrome.storage.local.get('visits');
     const visits = result.visits || [];
-    const recentVisits = visits.filter(
-      v => new Date(v.timestamp) > new Date(Date.now() - 5 * 60 * 1000)
+    const recentVisits = visits.filter(v => 
+      new Date(v.timestamp) > new Date(Date.now() - 5 * 60 * 1000)
     );
     const matchingVisit = recentVisits.find(v => v.url === url);
-
-    if (
-      matchingVisit &&
-      matchingVisit.analysis.toLowerCase().includes('time-wasting')
-    ) {
-      await chrome.tabs.sendMessage(tabId, {
-        action: 'block',
-        blockedUrl: url,
-      });
+    
+    const isBlocked = matchingVisit && matchingVisit.analysis.toLowerCase().includes('time-waster');
+    
+    if (isBlocked) {
+      await chrome.tabs.sendMessage(tabId, { action: "block", blockedUrl: url });
     }
+
+    return isBlocked;
   } catch (error) {
     console.error('Error checking if blocked:', error);
+    throw error;
   }
 }
