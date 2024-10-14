@@ -8,6 +8,7 @@ module.exports = {
     content: './src/content.ts',
     popup: './src/popup.ts',
   },
+  devtool: 'source-map',
   module: {
     rules: [
       {
