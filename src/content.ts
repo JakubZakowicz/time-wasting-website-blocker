@@ -19,4 +19,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getMetadata') {
     sendResponse(getWebsiteMetadata());
   }
+
+  if (message.action === 'blockWebsite') {
+    console.log('blocking')
+    window.location.href =
+      chrome.runtime.getURL('blocked.html') +
+      '?blockedUrl=' +
+      encodeURIComponent(message.url);
+  }
 });

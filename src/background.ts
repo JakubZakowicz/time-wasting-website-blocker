@@ -1,6 +1,19 @@
+interface Metadata {
+  url: string;
+  title: string;
+  description: string;
+  keywords: string;
+}
+
+function analyzeMetadata(metadata: Metadata) {
+  return 'time-waster';
+}
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'complete') {
     console.log('page loaded');
+
+    let metadata: Metadata;
 
     chrome.tabs.sendMessage(tabId, { action: 'getMetadata' }, response => {
       if (chrome.runtime.lastError) {
@@ -10,7 +23,16 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
       if (response) {
         console.log('Metadata:', response);
-        // Here you can do whatever you want with the metadata
+        metadata = response;
+
+        const result = analyzeMetadata(metadata);
+
+        if (result === 'time-waster') {
+          chrome.tabs.sendMessage(tabId, {
+            action: 'blockWebsite',
+            url: metadata.url,
+          });
+        }
       }
     });
   }
