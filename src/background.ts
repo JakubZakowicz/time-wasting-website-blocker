@@ -1,3 +1,6 @@
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
 interface Metadata {
   url: string;
   title: string;
@@ -24,24 +27,51 @@ const checkIfWebsiteAlreadyAdded = async (url: string) => {
   const timeWastingSites: string[] =
     result[SiteCategory.TimeWastingSites] || [];
 
-  const timeWastingSite = timeWastingSites.find(site => site === url);
   const beneficialSite = beneficialSites.find(site => site === url);
+  if (beneficialSite) return [true, SiteStatus.Beneficial];
 
-  if (beneficialSite) return SiteStatus.Beneficial;
-  if (timeWastingSite) return SiteStatus.TimeWasting;
+  const timeWastingSite = timeWastingSites.find(site => site === url);
+  if (timeWastingSite) return [true, SiteStatus.TimeWasting];
 
-  return null;
+  return [false, null];
 };
 
-function analyzeMetadata(metadata: Metadata): SiteStatus {
-  return SiteStatus.TimeWasting;
+const analyzeMetadata = async (metadata: Metadata): Promise<SiteStatus> => {
+  const prompt = `Analyze the following website metadata and determine if the   website is likely to be beneficial or time-wasting. Consider a webpage as "beneficial" if it contains educational, useful, or informative content. Otherwise, consider it a "time-waster" such as content about video games, movies, series etc. Use only one word.
+  
+  Title: ${metadata.title}
+  Description: ${metadata.description}
+  Keywords: ${metadata.keywords}
+    `;
+
+  const response = await fetch(GROQ_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama3-8b-8192',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 150,
+      temperature: 0,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  return data.choices[0].message.content;
 }
 
-const getResult = async (metadata: Metadata) => {
-  return (
-    (await checkIfWebsiteAlreadyAdded(metadata.url)) ||
-    analyzeMetadata(metadata)
-  );
+const blockWebsite = async (tabId: number, url: string) => {
+  chrome.tabs.sendMessage(tabId, {
+    action: 'blockWebsite',
+    url,
+  });
 };
 
 const addSiteToStorage = async (siteCategory: SiteCategory, url: string) => {
@@ -61,41 +91,29 @@ const addSiteToStorage = async (siteCategory: SiteCategory, url: string) => {
   chrome.storage.local.set({ [siteCategory]: sites });
 };
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete') {
     console.log('page loaded');
+    const url: string = tab.url!;
 
-    let metadata: Metadata;
+    const [websiteAlreadyAdded, result] = await checkIfWebsiteAlreadyAdded(url);
 
-    chrome.tabs.sendMessage(
-      tabId,
-      { action: 'getMetadata' },
-      async response => {
-        if (chrome.runtime.lastError) {
-          console.error(chrome.runtime.lastError.message);
-          return;
-        }
+    if (websiteAlreadyAdded) {
+      if (result === SiteStatus.TimeWasting) blockWebsite(tabId, url);
+    } else {
+      const metadata = await chrome.tabs.sendMessage(tabId, {
+        action: 'getMetadata',
+      });
+      const result = await analyzeMetadata(metadata);
 
-        if (response) {
-          console.log('Metadata:', response);
-          metadata = response;
-
-          const result = await getResult(metadata);
-
-          chrome.storage.local.get(console.log);
-          if (result === SiteStatus.TimeWasting) {
-            addSiteToStorage(SiteCategory.TimeWastingSites, metadata.url);
-            chrome.tabs.sendMessage(tabId, {
-              action: 'blockWebsite',
-              url: metadata.url,
-            });
-          }
-
-          if (result === SiteStatus.Beneficial) {
-            addSiteToStorage(SiteCategory.BeneficialSites, metadata.url);
-          }
-        }
+      if (result === SiteStatus.TimeWasting) {
+        addSiteToStorage(SiteCategory.TimeWastingSites, url);
+        blockWebsite(tabId, url);
       }
-    );
+
+      if (result === SiteStatus.Beneficial) {
+        addSiteToStorage(SiteCategory.BeneficialSites, url);
+      }
+    }
   }
 });
