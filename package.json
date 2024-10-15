@@ -7,7 +7,7 @@
     "build": "webpack --mode production",
     "test": "ts-node e2e/test.ts",
     "dev": "webpack --mode development --watch",
-    "dev-and-test": "nodemon --watch src --watch e2e --ext ts,js,json --exec \"npm run test\""
+    "dev-and-test": "nodemon --watch src --watch e2e --ext ts,js,json --exec \"npm run build && npm run test\""
   },
   "repository": {
     "type": "git",

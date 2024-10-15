@@ -21,7 +21,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'blockWebsite') {
-    console.log('blocking')
     window.location.href =
       chrome.runtime.getURL('blocked.html') +
       '?blockedUrl=' +
