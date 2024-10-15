@@ -5,7 +5,9 @@
   "main": "background.js",
   "scripts": {
     "build": "webpack --mode production",
-    "watch": "webpack --mode development --watch"
+    "test": "ts-node e2e/test.ts",
+    "dev": "webpack --mode development --watch",
+    "dev-and-test": "nodemon --watch src --watch e2e --ext ts,js,json --exec \"npm run test\""
   },
   "repository": {
     "type": "git",
@@ -23,8 +25,10 @@
     "copy-webpack-plugin": "^12.0.2",
     "dotenv": "^16.4.5",
     "dotenv-webpack": "^8.1.0",
+    "nodemon": "^3.1.7",
     "puppeteer": "^23.5.3",
     "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
     "webpack": "^5.95.0",
     "webpack-cli": "^5.1.4"
