@@ -1,26 +1,43 @@
-function getWebsiteMetadata() {
+import { MetadataAndContent } from './types';
+import { Actions } from './actions';
+
+const getWebsiteMetadataAndContent = (): MetadataAndContent => {
   const title = document.querySelector('title')?.innerText || '';
-  const description =
-    (document.querySelector('meta[name="description"]') as HTMLMetaElement)
-      ?.content || '';
-  const keywords =
-    (document.querySelector('meta[name="keywords"]') as HTMLMetaElement)
-      ?.content || '';
+  const metadata: { [key: string]: string } = {};
+
+  const metaTags = document.querySelectorAll('meta');
+  metaTags.forEach(meta => {
+    const name = meta.getAttribute('name') || meta.getAttribute('property');
+    const content = meta.getAttribute('content');
+    if (name && content) {
+      metadata[name] = content;
+    }
+  });
+
+  const headings = Array.from(document.querySelectorAll('h1, h2, h3'))
+    .map(h => (h as HTMLElement).innerText.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+
+  const paragraphs = Array.from(document.querySelectorAll('p'))
+    .map(p => p.innerText.trim())
+    .filter(Boolean)
+    .slice(0, 3);
 
   return {
-    url: window.location.href,
     title,
-    description,
-    keywords,
+    metadata,
+    headings,
+    paragraphs,
   };
-}
+};
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'getMetadata') {
-    sendResponse(getWebsiteMetadata());
+  if (message.action === Actions.GetMetadataAndContent) {
+    sendResponse(getWebsiteMetadataAndContent());
   }
 
-  if (message.action === 'blockWebsite') {
+  if (message.action === Actions.Block) {
     window.location.href =
       chrome.runtime.getURL('blocked.html') +
       '?blockedUrl=' +

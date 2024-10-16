@@ -1,12 +1,8 @@
+import { MetadataAndContent } from './types';
+import { Actions } from './actions';
+
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-
-interface Metadata {
-  url: string;
-  title: string;
-  description: string;
-  keywords: string;
-}
 
 enum SiteStatus {
   Beneficial = 'beneficial',
@@ -36,13 +32,18 @@ const checkIfWebsiteAlreadyAdded = async (url: string) => {
   return [false, null];
 };
 
-const analyzeMetadata = async (metadata: Metadata): Promise<SiteStatus> => {
-  const prompt = `Analyze the following website metadata and determine if the   website is likely to be beneficial or time-wasting. Consider a webpage as "beneficial" if it contains educational, useful, or informative content. Otherwise, consider it a "time-waster" such as content about video games, movies, series etc. Use only one word.
+const analyzeMetadataAndContent = async (
+  websiteInfo: MetadataAndContent
+): Promise<SiteStatus> => {
+  const prompt = `Analyze the following website metadata and determine if the   website is likely to be beneficial or time-wasting. Consider a webpage as "beneficial" if it contains educational, useful, or informative content. Otherwise, consider it "time-wasting" such as content about video games, movies, series etc. Use only one word.
   
-  Title: ${metadata.title}
-  Description: ${metadata.description}
-  Keywords: ${metadata.keywords}
+  Title: ${websiteInfo.title}
+  Metadata: ${JSON.stringify(websiteInfo.metadata)}
+  headers: ${websiteInfo.headings}
+  paragraphs: ${websiteInfo.paragraphs}
     `;
+
+  console.log(prompt);
 
   const response = await fetch(GROQ_API_URL, {
     method: 'POST',
@@ -64,12 +65,12 @@ const analyzeMetadata = async (metadata: Metadata): Promise<SiteStatus> => {
 
   const data = await response.json();
 
-  return data.choices[0].message.content;
-}
+  return data.choices[0].message.content.toLowerCase();
+};
 
 const blockWebsite = async (tabId: number, url: string) => {
   chrome.tabs.sendMessage(tabId, {
-    action: 'blockWebsite',
+    action: Actions.Block,
     url,
   });
 };
@@ -91,20 +92,30 @@ const addSiteToStorage = async (siteCategory: SiteCategory, url: string) => {
   chrome.storage.local.set({ [siteCategory]: sites });
 };
 
+const getMetadataAndContent = (tabId: number) => {
+  return chrome.tabs.sendMessage(tabId, {
+    action: Actions.GetMetadataAndContent,
+  });
+};
+
+const isOneOfIgnoredDomains = (url: string) => {
+  const ignoredDomains = ['www.google.com'];
+  return ignoredDomains.some(domain => url.includes(domain));
+};
+
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete') {
-    console.log('page loaded');
-    const url: string = tab.url!;
+  const url: string = tab.url!;
 
-    const [websiteAlreadyAdded, result] = await checkIfWebsiteAlreadyAdded(url);
+  if (changeInfo.status === 'complete' && !isOneOfIgnoredDomains(url)) {
+    const [isWebsiteAlreadyAdded, result] = await checkIfWebsiteAlreadyAdded(
+      url
+    );
 
-    if (websiteAlreadyAdded) {
+    if (isWebsiteAlreadyAdded) {
       if (result === SiteStatus.TimeWasting) blockWebsite(tabId, url);
     } else {
-      const metadata = await chrome.tabs.sendMessage(tabId, {
-        action: 'getMetadata',
-      });
-      const result = await analyzeMetadata(metadata);
+      const metadataAndContent = await getMetadataAndContent(tabId);
+      const result = await analyzeMetadataAndContent(metadataAndContent);
 
       if (result === SiteStatus.TimeWasting) {
         addSiteToStorage(SiteCategory.TimeWastingSites, url);
