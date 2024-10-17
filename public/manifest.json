@@ -12,7 +12,7 @@
     "<all_urls>"
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup/popup.html"
   },
   "background": {
     "service_worker": "background.js"
@@ -25,7 +25,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html"],
+      "resources": ["blocked/blocked.html"],
       "matches": ["<all_urls>"]
     }
   ]
