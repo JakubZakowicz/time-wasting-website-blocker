@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Website Productivity Analyzer",
+  "name": "ATime-wasting Website Blocker",
   "version": "1.0",
-  "description": "Analyzes websites for productivity and blocks time-wasting sites.",
+  "description": "Blocker of a time-wasting and distracting websites to keep you more focused and productive",
   "permissions": [
     "webNavigation",
     "tabs",
@@ -12,7 +12,7 @@
     "<all_urls>"
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup/popup.html"
   },
   "background": {
     "service_worker": "background.js"
@@ -25,7 +25,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html"],
+      "resources": ["blocked/blocked.html"],
       "matches": ["<all_urls>"]
     }
   ]

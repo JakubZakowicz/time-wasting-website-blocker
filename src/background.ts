@@ -43,8 +43,6 @@ const analyzeMetadataAndContent = async (
   paragraphs: ${websiteInfo.paragraphs}
     `;
 
-  console.log(prompt);
-
   const response = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: {
@@ -103,10 +101,26 @@ const isOneOfIgnoredDomains = (url: string) => {
   return ignoredDomains.some(domain => url.includes(domain));
 };
 
+const checkIfExtensionIsEnabled = () => {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get('isEnabled', state => {
+      if (chrome.runtime.lastError) {
+        return reject(chrome.runtime.lastError);
+      }
+      resolve(state.isEnabled);
+    });
+  });
+};
+
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const url: string = tab.url!;
+  const isEnabled = await checkIfExtensionIsEnabled();
 
-  if (changeInfo.status === 'complete' && !isOneOfIgnoredDomains(url)) {
+  if (
+    changeInfo.status === 'complete' &&
+    !isOneOfIgnoredDomains(url) &&
+    isEnabled
+  ) {
     const [isWebsiteAlreadyAdded, result] = await checkIfWebsiteAlreadyAdded(
       url
     );
