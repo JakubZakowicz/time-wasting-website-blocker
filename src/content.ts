@@ -43,4 +43,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       '?blockedUrl=' +
       encodeURIComponent(message.url);
   }
+
+  console.log(message);
+  if (message.action === 'changeState') {
+    console.log(message.isEnabled);
+  }
 });
