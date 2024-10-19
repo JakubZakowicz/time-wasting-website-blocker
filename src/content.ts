@@ -39,7 +39,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === Actions.Block) {
     window.location.href =
-      chrome.runtime.getURL('blocked.html') +
+      chrome.runtime.getURL('blocked/blocked.html') +
       '?blockedUrl=' +
       encodeURIComponent(message.url);
   }
