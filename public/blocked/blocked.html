@@ -15,11 +15,6 @@
       </p>
       <p>Blocked URL: <span id="blockedUrl"></span></p>
     </div>
-    <script>
-      const urlParams = new URLSearchParams(window.location.search);
-      const blockedUrl = urlParams.get('blockedUrl');
-      document.getElementById('blockedUrl').textContent =
-        blockedUrl || 'Unknown';
-    </script>
+    <script src="../blocked.js"></script>
   </body>
 </html>
