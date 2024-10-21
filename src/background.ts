@@ -9,7 +9,7 @@ enum SiteStatus {
   TimeWasting = 'time-wasting',
 }
 
-enum SiteCategory {
+export enum SiteCategory {
   BeneficialSites = 'beneficial_sites',
   TimeWastingSites = 'time_wasting_sites',
 }
