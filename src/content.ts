@@ -42,5 +42,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.runtime.getURL('blocked/blocked.html') +
       '?blockedUrl=' +
       encodeURIComponent(message.url);
+    return true;
   }
+
+  return true;
 });

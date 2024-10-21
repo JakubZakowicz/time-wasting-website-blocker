@@ -97,7 +97,7 @@ const getMetadataAndContent = (tabId: number) => {
 };
 
 const isOneOfIgnoredDomains = (url: string) => {
-  const ignoredDomains = ['www.google.com'];
+  const ignoredDomains = ['www.google.com', 'blocked/blocked.html'];
   return ignoredDomains.some(domain => url.includes(domain));
 };
 
@@ -115,7 +115,6 @@ const checkIfExtensionIsEnabled = () => {
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const url: string = tab.url!;
   const isEnabled = await checkIfExtensionIsEnabled();
-
   if (
     changeInfo.status === 'complete' &&
     !isOneOfIgnoredDomains(url) &&
