@@ -1,17 +1,12 @@
 import { MetadataAndContent } from './types';
-import { Actions } from './actions';
+import { Actions, SiteCategory, updateIconBadge } from './utils';
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const API_KEY = process.env.API_KEY as string;
+const API_URL = process.env.API_URL as string;
 
 enum SiteStatus {
   Beneficial = 'beneficial',
   TimeWasting = 'time-wasting',
-}
-
-export enum SiteCategory {
-  BeneficialSites = 'beneficial_sites',
-  TimeWastingSites = 'time_wasting_sites',
 }
 
 const checkIfWebsiteAlreadyAdded = async (url: string) => {
@@ -43,11 +38,11 @@ const analyzeMetadataAndContent = async (
   paragraphs: ${websiteInfo.paragraphs}
     `;
 
-  const response = await fetch(GROQ_API_URL, {
+  const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${GROQ_API_KEY}`,
+      Authorization: `Bearer ${API_KEY}`,
     },
     body: JSON.stringify({
       model: 'llama3-8b-8192',
@@ -111,6 +106,11 @@ const checkIfExtensionIsEnabled = () => {
     });
   });
 };
+
+chrome.runtime.onInstalled.addListener(async () => {
+  const isEnabled = await checkIfExtensionIsEnabled();
+  updateIconBadge(isEnabled as boolean);
+});
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const url: string = tab.url!;

@@ -1,5 +1,5 @@
 import { MetadataAndContent } from './types';
-import { Actions } from './actions';
+import { Actions } from './utils';
 
 const getWebsiteMetadataAndContent = (): MetadataAndContent => {
   const title = document.querySelector('title')?.innerText || '';

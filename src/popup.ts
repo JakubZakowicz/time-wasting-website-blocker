@@ -1,15 +1,8 @@
-import { SiteCategory } from './background';
+import { SiteCategory, updateIconBadge } from './utils';
 
 const buttonTexts = {
   changeToTimeWasting: 'Change to Time-wasting',
   changeToBeneficial: 'Change to Beneficial',
-};
-
-const updateIconBadge = (isEnabled: boolean): void => {
-  chrome.action.setBadgeText({ text: isEnabled ? 'on' : 'off' });
-  chrome.action.setBadgeBackgroundColor({
-    color: isEnabled ? '#00FF00' : '#FF0000',
-  });
 };
 
 const updateStatusVisibility = (isEnabled: boolean): void => {
@@ -45,11 +38,11 @@ const getStatusResult = async () => {
   if (isWebsiteBlocked) {
     statusResult.innerText = 'Time-wasting';
     statusResult.classList.add('time-wasting');
-    classificationToggleButton.innerText = 'Change to Beneficial';
+    classificationToggleButton.innerText = buttonTexts.changeToBeneficial;
   } else {
     statusResult.innerText = 'Beneficial';
     statusResult.classList.remove('beneficial');
-    classificationToggleButton.innerText = 'Change to Time-wasting';
+    classificationToggleButton.innerText = buttonTexts.changeToTimeWasting;
   }
 };
 
