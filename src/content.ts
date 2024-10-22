@@ -1,5 +1,5 @@
 import { MetadataAndContent } from './types';
-import { Actions } from './actions';
+import { Actions } from './utils';
 
 const getWebsiteMetadataAndContent = (): MetadataAndContent => {
   const title = document.querySelector('title')?.innerText || '';
@@ -39,8 +39,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === Actions.Block) {
     window.location.href =
-      chrome.runtime.getURL('blocked.html') +
+      chrome.runtime.getURL('blocked/blocked.html') +
       '?blockedUrl=' +
       encodeURIComponent(message.url);
+    return true;
   }
+
+  return true;
 });

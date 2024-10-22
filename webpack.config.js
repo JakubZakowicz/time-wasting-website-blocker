@@ -7,6 +7,7 @@ module.exports = {
     background: './src/background.ts',
     content: './src/content.ts',
     popup: './src/popup.ts',
+    blocked: './src/blocked.ts',
   },
   devtool: 'source-map',
   module: {
