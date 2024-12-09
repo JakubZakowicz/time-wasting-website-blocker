@@ -94,7 +94,6 @@ const getMetadataAndContent = (tabId: number) => {
 
 const isOneOfIgnoredDomains = (url: string) => {
   const envIgnoredDomains = IGNORED_DOMAINS.split(',');
-  console.log(envIgnoredDomains);
   const ignoredDomains = [
     'google.com',
     'blocked/blocked.html',
