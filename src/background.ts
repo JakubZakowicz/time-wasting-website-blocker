@@ -1,8 +1,9 @@
 import { MetadataAndContent } from './types';
-import { Actions, SiteCategory, updateIconBadge } from './utils';
+import { Actions, checkIfExtensionIsEnabled, SiteCategory, updateIconBadge } from './utils';
 
 const API_KEY = process.env.API_KEY as string;
 const API_URL = process.env.API_URL as string;
+const IGNORED_DOMAINS = process.env.IGNORED_DOMAINS as string;
 
 enum SiteStatus {
   Beneficial = 'beneficial',
@@ -92,24 +93,22 @@ const getMetadataAndContent = (tabId: number) => {
 };
 
 const isOneOfIgnoredDomains = (url: string) => {
-  const ignoredDomains = ['www.google.com', 'blocked/blocked.html'];
+  const envIgnoredDomains = IGNORED_DOMAINS.split(',');
+  console.log(envIgnoredDomains);
+  const ignoredDomains = [
+    'google.com',
+    'blocked/blocked.html',
+    ...envIgnoredDomains,
+  ];
   return ignoredDomains.some(domain => url.includes(domain));
 };
 
-const checkIfExtensionIsEnabled = () => {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get('isEnabled', state => {
-      if (chrome.runtime.lastError) {
-        return reject(chrome.runtime.lastError);
-      }
-      resolve(state.isEnabled);
-    });
-  });
-};
+chrome.runtime.onStartup.addListener(async () => {
+  updateIconBadge();
+});
 
 chrome.runtime.onInstalled.addListener(async () => {
-  const isEnabled = await checkIfExtensionIsEnabled();
-  updateIconBadge(isEnabled as boolean);
+  updateIconBadge();
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
