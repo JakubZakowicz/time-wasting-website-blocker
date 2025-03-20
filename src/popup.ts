@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   chrome.storage.local.get('isEnabled', async data => {
     const { isEnabled } = data;
     toggleSwitch.checked = isEnabled || false;
-    updateIconBadge(isEnabled);
+    updateIconBadge();
     updateStatusVisibility(isEnabled);
     if (isEnabled) {
       getStatusResult();
@@ -145,10 +145,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   toggleSwitch.addEventListener('change', async event => {
     const target = event.target as HTMLInputElement;
     const isEnabled = target.checked;
-    updateIconBadge(isEnabled);
     updateStatusVisibility(isEnabled);
     getStatusResult();
     chrome.storage.local.set({ isEnabled });
+    updateIconBadge();
   });
 
   classificationToggleButton.addEventListener('click', async () => {
